@@ -26,6 +26,14 @@ from datetime import datetime
 
 import pdfplumber
 
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+)
+from reportlab.lib import colors
+
 
 # ============================================================
 # Data structures
@@ -86,6 +94,97 @@ class QCReport:
 
     def to_json(self, path):
         Path(path).write_text(json.dumps(self.to_dict(), indent=2))
+
+    def to_pdf(self, path):
+        """Generate a formatted, human-readable PDF version of this report."""
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            name="ReportTitle", fontSize=18, leading=22,
+            fontName="Helvetica-Bold", spaceAfter=4
+        )
+        subtitle_style = ParagraphStyle(
+            name="ReportSubtitle", fontSize=10, leading=14,
+            textColor=colors.grey, spaceAfter=16
+        )
+        section_style = ParagraphStyle(
+            name="Section", fontSize=12, leading=16,
+            fontName="Helvetica-Bold", spaceBefore=16, spaceAfter=6,
+            textColor=colors.HexColor("#1a1a1a")
+        )
+        body_style = ParagraphStyle(
+            name="Body", fontSize=9.5, leading=13
+        )
+        pass_style = ParagraphStyle(
+            name="Pass", fontSize=12, leading=16,
+            fontName="Helvetica-Bold", textColor=colors.HexColor("#0a7d32")
+        )
+
+        story = []
+        story.append(Paragraph("IFU QC Automation Report", title_style))
+        story.append(Paragraph(
+            f"Source file: {self.source_file}<br/>"
+            f"Generated: {datetime.now().strftime('%d %b %Y, %H:%M')}",
+            subtitle_style
+        ))
+
+        # Summary box
+        result_text = "PASS" if self.passed() else "FAIL"
+        result_color = colors.HexColor("#0a7d32") if self.passed() else colors.HexColor("#c0392b")
+        summary_table = Table(
+            [["Result", "Failures", "Warnings"],
+             [result_text, str(len(self.fails())), str(len(self.warns()))]],
+            colWidths=[150, 150, 150]
+        )
+        summary_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("TEXTCOLOR", (0, 1), (0, 1), result_color),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ]))
+        story.append(summary_table)
+
+        if not self.issues:
+            story.append(Spacer(1, 20))
+            story.append(Paragraph("All checks passed — no issues found.", pass_style))
+        else:
+            for cat in sorted(set(i.category for i in self.issues)):
+                story.append(Paragraph(cat, section_style))
+                cat_issues = [x for x in self.issues if x.category == cat]
+                rows = [["Severity", "Page", "Issue"]]
+                for i in cat_issues:
+                    rows.append([
+                        i.severity,
+                        str(i.page) if i.page else "—",
+                        Paragraph(i.message, body_style)
+                    ])
+                issue_table = Table(rows, colWidths=[60, 50, 340])
+                table_style = [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8e8e8")),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]
+                for row_idx, i in enumerate(cat_issues, start=1):
+                    color = colors.HexColor("#c0392b") if i.severity == "FAIL" else colors.HexColor("#b8860b")
+                    table_style.append(("TEXTCOLOR", (0, row_idx), (0, row_idx), color))
+                    table_style.append(("FONTNAME", (0, row_idx), (0, row_idx), "Helvetica-Bold"))
+                issue_table.setStyle(TableStyle(table_style))
+                story.append(issue_table)
+
+        doc = SimpleDocTemplate(
+            str(path), pagesize=A4,
+            topMargin=20 * mm, bottomMargin=15 * mm,
+            leftMargin=18 * mm, rightMargin=18 * mm,
+        )
+        doc.build(story)
 
 
 # ============================================================

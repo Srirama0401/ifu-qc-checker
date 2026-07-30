@@ -33,9 +33,11 @@ def process_pdf(pdf_path: Path) -> bool:
     report.print_report()
 
     OUTPUT_DIR.mkdir(exist_ok=True)
-    out_path = OUTPUT_DIR / f"{pdf_path.stem}.qc_report.json"
-    report.to_json(out_path)
-    print(f"Report saved to: {out_path}")
+    json_path = OUTPUT_DIR / f"{pdf_path.stem}.qc_report.json"
+    pdf_report_path = OUTPUT_DIR / f"{pdf_path.stem}.qc_report.pdf"
+    report.to_json(json_path)
+    report.to_pdf(pdf_report_path)
+    print(f"Reports saved to:\n  {json_path}\n  {pdf_report_path}")
 
     return report.passed()
 
