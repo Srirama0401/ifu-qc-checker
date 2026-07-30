@@ -21,7 +21,9 @@ pip install -r requirements.txt
 python run.py
 ```
 
-Every PDF in `input_pdfs/` is checked. Reports print to the console and are saved as JSON in `output_reports/`.
+Every PDF in `input_pdfs/` is checked. Reports print to the console and are saved in `output_reports/` as both:
+- `<filename>.qc_report.json` — machine-readable, for scripting/CI
+- `<filename>.qc_report.pdf` — formatted, presentation-ready report with color-coded FAIL/WARN tables
 
 **Single file mode:**
 
