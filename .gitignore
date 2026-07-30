@@ -1,0 +1,14 @@
+# Don't version the actual PDFs being checked or generated reports
+input_pdfs/*.pdf
+output_reports/*.json
+
+# Keep the folders themselves in git
+!input_pdfs/.gitkeep
+!output_reports/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
